@@ -14,9 +14,6 @@
 
 import Dispatch
 import Foundation
-#if canImport(FoundationNetworking)
-  import FoundationNetworking
-#endif
 import AuthenticationServices
 
 struct NativeCredentials: Codable {
@@ -124,8 +121,12 @@ public class PlatformTokenProvider: TokenProvider {
     }
   }
 
-  @available(macOS 10.15, iOS 12.0, tvOS 13.0, *)
-  public func signIn(scopes: [String], completion: @escaping (Token?) -> Void) {
+  @available(macOS 10.15.4, iOS 13.4, *)
+  public func signIn(
+    scopes: [String],
+    delegate: ASWebAuthenticationPresentationContextProviding,
+    completion: @escaping (Token?) -> Void
+  ) {
     let state = UUID().uuidString
     let scope = scopes.joined(separator: " ")
 
@@ -143,13 +144,21 @@ public class PlatformTokenProvider: TokenProvider {
       url: urlComponents.url!,
       callbackURLScheme: credentials.callback_scheme
     ) { url, err in
-      print("Auth Session Callback")
+      print("auth session callback")
       url.map { print("url: \($0)") }
       err.map { print("err: \($0)") }
       self.token = try? self.exchange()
       completion(self.token)
     }
-    session.start()
+    session.presentationContextProvider = delegate
+    if !session.canStart {
+      print("cannot start auth session")
+      return
+    }
+    let success = session.start()
+    if !success {
+      print("error starting auth session")
+    }
   }
 
   public func withToken(_ callback: @escaping (Token?, Error?) -> Void) throws {
