@@ -152,8 +152,14 @@ public class PlatformTokenProvider: TokenProvider {
         print("err: \(e)")
         return
       }
-      url.map { print("url: \($0)") }
-
+      guard
+        let url = url,
+        let comp = URLComponents(string: url.absoluteString)
+      else {
+        print("bad url: \(String(describing: url))")
+        return
+      }
+      self.code = Code(urlComponents: comp)
       self.token = try? self.exchange()
       completion(self.token)
     }
