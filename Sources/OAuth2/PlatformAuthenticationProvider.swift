@@ -21,13 +21,16 @@ struct NativeCredentials: Codable {
   let clientSecret: String
   let authorizeURL: String
   let accessTokenURL: String
-  let callback_scheme: String
+  let callbackScheme: String
   enum CodingKeys: String, CodingKey {
     case clientID = "client_id"
     case clientSecret = "client_secret"
     case authorizeURL = "authorize_url"
     case accessTokenURL = "access_token_url"
-    case callback_scheme = "callback_scheme"
+    case callbackScheme = "callback_scheme"
+  }
+  var redirectUri: String {
+    callbackScheme + ":/google/callback"
   }
 }
 
@@ -76,7 +79,7 @@ public class PlatformTokenProvider: TokenProvider {
       "client_secret": credentials.clientSecret,
       "grant_type": "authorization_code",
       "code": code!.code!,
-      "redirect_uri": credentials.callback_scheme,
+      "redirect_uri": credentials.redirectUri,
     ]
     let token = credentials.clientID + ":" + credentials.clientSecret
     // some providers require the client id and secret in the authorization header
@@ -134,7 +137,7 @@ public class PlatformTokenProvider: TokenProvider {
     urlComponents.queryItems = [
       URLQueryItem(name: "client_id", value: credentials.clientID),
       URLQueryItem(name: "response_type", value: "code"),
-      URLQueryItem(name: "redirect_uri", value: credentials.callback_scheme), // cb_scheme://localhost:8080, possibly
+      URLQueryItem(name: "redirect_uri", value: credentials.redirectUri),
       URLQueryItem(name: "state", value: state),
       URLQueryItem(name: "scope", value: scope),
       URLQueryItem(name: "show_dialog", value: "false"),
@@ -142,11 +145,15 @@ public class PlatformTokenProvider: TokenProvider {
 
     let session = ASWebAuthenticationSession(
       url: urlComponents.url!,
-      callbackURLScheme: credentials.callback_scheme
+      callbackURLScheme: credentials.callbackScheme
     ) { url, err in
       print("auth session callback")
+      if let e = err {
+        print("err: \(e)")
+        return
+      }
       url.map { print("url: \($0)") }
-      err.map { print("err: \($0)") }
+
       self.token = try? self.exchange()
       completion(self.token)
     }
